@@ -136,3 +136,21 @@ confusionMatrix(forTestingLabels, preddt)
 ```
 The accuracy of the decision tree is (0.8198).
 
+# Naive Bayes Model
+```{r}
+set.seed(2345)
+library(klaR)
+library(MASS)
+```
+
+```{r}
+modelnb = train(y = forTrainingLabels, x = forTrainingVars, method = "nb", )
+```
+
+```{r}
+prednb = predict(modelnb, forTestingVars)
+confusionMatrix(forTestingLabels, prednb)
+```
+
+The accuracy of the naive Bayes model is (0.7536)
+
