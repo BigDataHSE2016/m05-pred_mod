@@ -1,0 +1,138 @@
+---
+title: "Homework 02"
+author: "Natalia Khapaeva"
+output:
+  html_document:
+    toc: yes
+  pdf_document:
+    toc: yes
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Package Installation
+### Caret
+The Caret package has some issues with versions compatibility, so the installation is a bit tricky.
+```{r eval = FALSE}
+install.packages('caret',dependencies=TRUE)
+#DO NOT RUN NOW
+update.packages(checkBuilt = TRUE)
+```
+
+### Other packages
+```{r eval = FALSE}
+install.packages('corrplot')
+install.packages('randomForest')
+install.packages('ggplot2')
+install.packages('ggthemes')
+install.packages('easyGgplot2')
+install.packages('scales')
+install.packages('plyr')
+install.packages('dplyr')
+install.packages('rpart')
+install.packages('rpart.plot')	
+```
+
+```{r}
+library(caret)
+library(randomForest)
+library(ggplot2)
+library(ggthemes)
+library(easyGgplot2)
+library(scales)
+library(plyr)
+library(dplyr)
+library(corrplot)
+library(rpart)
+library(rpart.plot)	
+dcolors <- c("#ffed00", 
+             "#6f6f6f")
+```
+## Getting data
+```{r}
+train <- read.csv('/Users/madhape/Dropbox/prj/hse-big-data/m05-pred-mod/hw/hw02/train.csv', stringsAsFactors = F)
+test  <- read.csv('/Users/madhape/Dropbox/prj/hse-big-data/m05-pred-mod/hw/hw02/test.csv', stringsAsFactors = F)
+data  <- bind_rows(train, test)
+```
+
+```{r}
+dim(test)
+dim(train)
+str(train)
+```
+```{r}
+summary(train)
+````
+```{r}
+featurePlot(x = train[, c(3, 5, 6, 8, 11)], y = train$Survived, plot = "pairs", auto.key = list(columns = 5))
+```
+
+## Pre-Processing
+Select useful predictors
+
+```{r}
+trainingSel = subset(train, select = c('Survived', 'Pclass', 'Sex', 'Age', 'SibSp', 'Parch', 'Embarked'))
+testingSel = subset(test, select = c('Pclass', 'Sex', 'Age', 'SibSp', 'Parch', 'Embarked'))
+head(trainingSel)
+```
+
+```{r}
+head(testingSel)
+```
+
+Remove Embaked with empty value
+
+```{r}
+trainingSel = subset(trainingSel, Embarked != '')
+trainingSel$Embarked = droplevels(trainingSel$Embarked, "")
+testingSel = subset(testingSel, Embarked != '')
+```
+
+Replace NA age with the median of Age
+```{r}
+agemedian = median(trainingSel$Age, na.rm = TRUE)
+trainingSel$Age = replace(trainingSel$Age, is.na(trainingSel$Age), agemedian)
+testingSel$Age = replace(test$Age, is.na(test$Age), agemedian)
+```
+
+Separate the predictors and class labels.
+```{r}
+trainingVars = trainingSel[, c(2:7)]
+objLabels = trainingSel[, 1]
+objLabels = as.factor(objLabels)
+testingVars = testingSel
+testingPsgIds = test[, 1]
+```
+
+## Training and Tuning through Cross Validation
+### Data Spliting
+
+The pre-processed training data is split into two subsets: 75% for training prediction models and 25% as validation set for evaluating error rates and selecting models.
+
+```{r}
+inTrain = createDataPartition(objLabels, p = 0.75, list = FALSE)
+forTrainingVars = trainingVars[inTrain, ]
+forTestingVars = trainingVars[-inTrain, ]
+forTrainingLabels = objLabels[inTrain]
+forTestingLabels = objLabels[-inTrain]
+```
+
+### Estimating a Baseline Error Rate
+For this classification problem, I first train a decision tree and evaluate its error rate on the validation set. I will use the error rate of the decision tree as a baseline error rate. In the later part of the document, I will train other models and use cross validation to select the best one.
+
+Train a decision tree using the caret package.
+
+```{r}
+set.seed(2345)
+modeldt = train(y = forTrainingLabels, x = forTrainingVars, method = "rpart")
+```
+
+Predict the labels for the validation set and estimate the error rate.
+```{r}
+preddt = predict(modeldt, forTestingVars)
+confusionMatrix(forTestingLabels, preddt)
+```
+The accuracy of the decision tree is (0.8198).
+
