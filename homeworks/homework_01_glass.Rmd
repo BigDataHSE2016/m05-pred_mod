@@ -1,0 +1,121 @@
+---
+  title: "Workshop 02"
+author: "Natalia Khapaeva"
+date: "02 12 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## What are we doing here?
+- Using visualizations, explore the predictor variables to understand their distributions as well as the relationships between predictors.
+- Do there appear to be any outliers in the data? Are any predictors skewed?
+- Are there any relevant transformations of one or more predictors that might improve the classification model?
+
+## Package Installation
+### Caret
+The Caret package has some issues with versions compatibility, so the installation is a bit tricky.
+```{r eval = FALSE}
+install.packages('caret',dependencies=TRUE)
+#DO NOT RUN NOW
+update.packages(checkBuilt = TRUE)
+```
+
+### Other packages
+```{r eval = FALSE}
+install.packages("corrplot")
+install.packages("e1071")
+install.packages("lattice")
+install.packages("Amelia")
+install.packages("epade")
+install.packages("mlbench")
+```
+
+```{r}
+library(mlbench)
+library(AppliedPredictiveModeling)
+library(corrplot)
+library(caret)
+library(e1071)   
+```
+
+## About the dataset
+The UC Irvine Machine Learning Repository contains a data set related to glass identification. 
+The data consist of 214 glass samples labeled as one of seven class categories. 
+There are nine predictors, including the refractive index and percentages of eight elements: Na, Mg, Al, Si, K, Ca, Ba, and Fe.
+
+```{r}
+data(Glass)
+structure(Glass)
+```
+```{r}
+summary(Glass)
+```
+
+### Data preparation
+Remove 10th collumn
+```{r}
+glass_cut <- Glass[, -(10)]
+```
+Split to predictors and classes
+```{r}
+classes <- Glass$Type
+predictors <- glass_cut[, !names(Glass) %in% c("Type")]
+```
+
+## Tasks
+### Using visualizations, explore the predictor variables to understand their distributions as well as the relationships between predictors.
+
+Distribution of all predictors
+```{r}
+par(mfrow=c(3,3))
+for (name in names(predictors)) {
+  hist(predictors[[name]], breaks = 50, main = paste("Histogram of", name), xlab = name)
+}
+```
+Correlation of predictors
+```{r}
+correlations <- cor(predictors)
+corrplot(correlations)
+```
+
+The highest correlated predictor is Ca
+```{r}
+highCorr <- findCorrelation(correlations, cutoff = .8)
+paste("Highly correlated predictors:", names(predictors)[highCorr])
+```
+
+### Do there appear to be any outliers in the data? Are any predictors skewed?
+
+Mg,K, Ca are highly skewed
+```{r}
+skew_values <- sapply(predictors, skewness)
+barplot(skew_values, main = "Skewness of predictors", xlab = "Predictors", ylab = "Skewness")
+```
+### Are there any relevant transformations of one or more predictors that might improve the classification model?
+
+BoxCox to resolve skewness of predictors
+```{r}
+transformation <- preProcess(predictors, method = c("BoxCox", "center", "scale", "spatialSign"))
+print(transformation)
+```
+```{r}
+print(paste("Box-Cox applied to:", paste(transformation$method$BoxCox, collapse = ", ")))
+```
+```{r}
+transformed <- predict(transformation, glass_cut)
+```
+
+```{r}
+skew_values_transformed <- sapply(transformed, skewness)
+skew_together <- rbind(skew_values, skew_values_transformed)
+rownames(skew_together) <- c("original", "transformed")
+barplot(skew_together,
+        main = "Skewness of original predictors vs transformed predictors",
+        xlab = "Predictors",
+        ylab = "Skewness",
+        col=c("green","blue"),
+        legend = rownames(skew_together), beside=TRUE)
+```
